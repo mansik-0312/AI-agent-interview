@@ -1,0 +1,6 @@
+.env
+Dockerfile
+venv/
+
+# Exclude pycache
+__pycache__/
