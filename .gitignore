@@ -2,5 +2,7 @@
 Dockerfile
 venv/
 
-# Exclude pycache
-__pycache__/
+# Ignore all Python cache folders and compiled files
+**/__pycache__/
+*.pyc
+*.pyo
