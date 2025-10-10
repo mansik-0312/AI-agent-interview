@@ -44,4 +44,4 @@ jobs:
               pm2 restart $ECOSYSTEM_PATH || pm2 start $ECOSYSTEM_PATH
             "
 
-            echo "✅ deployment completed for $BRANCH"
+            echo "✅ Deployment completed for $BRANCH"
