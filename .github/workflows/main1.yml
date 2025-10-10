@@ -1,0 +1,47 @@
+name: CI/CD - HRMS Python Dev - Employee Evaluation Service Onboarding
+
+on:
+  push:
+    branches:
+      - employee-evaluation-service-onboarding  # dev branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            set -e
+            BRANCH="employee-evaluation-service-onboarding"
+            CONTAINER_ID="57c2c5520972"
+            HOST_SERVICE_PATH="/home/projects/hrms/hrmsPythonServicess/dev/API/employee-evaluation-service-onboarding"
+            CONTAINER_SERVICE_PATH="/app/dev/API/employee-evaluation-service-onboarding"
+            ECOSYSTEM_PATH="/app/dev/ecosystem.config.js"
+
+            echo "Setting up SSH agent for Git"
+            eval "$(ssh-agent -s)"
+            ssh-add ~/.ssh/common_key
+
+            echo "Switching Git remote to SSH"
+            cd $HOST_SERVICE_PATH
+            git remote set-url origin git@github.com:vaiiibhavp/HRMS-FASTAPI.git
+
+            echo "Fetching latest code on host for $BRANCH"
+            git fetch origin $BRANCH
+            git reset --hard origin/$BRANCH
+
+            echo "Installing dependencies and restarting PM2 inside container"
+            docker exec -i $CONTAINER_ID bash -c "
+              cd $CONTAINER_SERVICE_PATH &&
+              pip install -r requirements.txt &&
+              pm2 restart $ECOSYSTEM_PATH || pm2 start $ECOSYSTEM_PATH
+            "
+
+            echo "✅ deployment completed for $BRANCH"
