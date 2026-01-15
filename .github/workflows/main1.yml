@@ -1,17 +1,20 @@
-name: CI/CD - HRMS Python Dev - Employee Evaluation Service Onboarding
+name: HRMS FastAPI Email Service CI/CD
 
 on:
   push:
     branches:
-      - employee-evaluation-service-onboarding  # dev branch
+      - email-service-onboarding
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@master
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deploy HRMS FastAPI Email Service
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
@@ -19,29 +22,19 @@ jobs:
           port: ${{ secrets.SSH_PORT }}
           script: |
             set -e
-            BRANCH="employee-evaluation-service-onboarding"
-            CONTAINER_ID="57c2c5520972"
-            HOST_SERVICE_PATH="/home/projects/hrms/hrmsPythonServicess/dev/API/employee-evaluation-service-onboarding"
-            CONTAINER_SERVICE_PATH="/app/dev/API/employee-evaluation-service-onboarding"
-            ECOSYSTEM_PATH="/app/dev/ecosystem.config.js"
 
-            echo "Setting up SSH agent for Git"
+            echo "🚀 Connected to HRMS Email Service Server"
+
             eval "$(ssh-agent -s)"
-            ssh-add ~/.ssh/common_key
 
-            echo "Switching Git remote to SSH"
-            cd $HOST_SERVICE_PATH
-            git remote set-url origin git@github.com:vaiiibhavp/HRMS-FASTAPI.git
+            cd /home/projects/hrms-fastapi-email
 
-            echo "Fetching latest code on host for $BRANCH"
-            git fetch origin $BRANCH
-            git reset --hard origin/$BRANCH
+            echo "📌 Pulling branch: email-service-onboarding"
+            git fetch origin
+            git checkout email-service-onboarding
+            git pull origin email-service-onboarding
 
-            echo "Installing dependencies and restarting PM2 inside container"
-            docker exec -i $CONTAINER_ID bash -c "
-              cd $CONTAINER_SERVICE_PATH &&
-              pip install -r requirements.txt &&
-              pm2 restart $ECOSYSTEM_PATH || pm2 start $ECOSYSTEM_PATH
-            "
+            echo "🐳 Building & running Email Service containers"
+            docker compose -f docker-compose.yml up -d --build
 
-            echo "✅ Deployment completed for $BRANCH"
+            echo "✅ HRMS FastAPI Email Service CI/CD completed successfully"
