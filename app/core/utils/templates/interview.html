@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Interview</title>
+    <script src="https://unpkg.com/livekit-client/dist/livekit-client.umd.js"></script>
+    <style>
+        body { font-family: Arial; margin: 30px; }
+        #question-box { margin-top: 20px; padding: 15px; border: 1px solid #ddd; }
+        #timer { color: red; font-size: 20px; margin-top: 15px; }
+        #status { margin-top: 10px; }
+        button { margin-top: 20px; padding: 10px 20px; }
+
+        #transcript-box {
+            margin-top: 15px;
+            padding: 12px;
+            min-height: 120px;
+            border: 2px solid #4CAF50;
+            border-radius: 6px;
+            background: #f9f9f9;
+            font-size: 16px;
+            line-height: 1.5;
+        }
+        #recording-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            background: red;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: blink 1s infinite;
+        }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+        #mic-status { margin-top: 8px; color: #555; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+<h2>AI Interview</h2>
+<p>Candidate: <strong>{{ candidate_name }}</strong></p>
+<p>Room: <strong>{{ room_name }}</strong></p>
+
+<button onclick="startInterview()">Start Interview</button>
+
+<div style="margin-top:20px;">
+    <video id="localVideo" autoplay muted playsinline width="400"></video>
+</div>
+
+<div id="question-box" style="display:none;">
+    <h3>Question <span id="sequence"></span></h3>
+    <p id="question" style="font-size:18px; font-weight:bold;"></p>
+
+    <div id="mic-status">
+        <span id="recording-indicator"></span>
+        Listening... speak your answer
+    </div>
+
+    <div id="transcript-box">
+        <em style="color:#aaa;">Your answer will appear here as you speak...</em>
+    </div>
+
+    <!-- Hidden textarea still used for submission -->
+    <textarea id="answerText" style="display:none;"></textarea>
+
+    <div id="timer"></div>
+    <div id="status"></div>
+
+    <button id="nextBtn" onclick="nextQuestion()">Next Question</button>
+</div>
+
+<script>
+    const LIVEKIT_URL = "{{ livekit_url }}";
+    const LIVEKIT_TOKEN = "{{ token }}";
+    const interviewId = "{{ interview_id }}";
+    const DEEPGRAM_API_KEY = "{{ deepgram_api_key }}";
+    console.log("Deepgram key loaded:", DEEPGRAM_API_KEY ? "YES (length=" + DEEPGRAM_API_KEY.length + ")" : "MISSING");
+
+    let room = null;
+    let countdownInterval = null;
+    let currentQuestionId = null;
+    let deepgramSocket = null;
+    let mediaRecorder = null;
+    let finalTranscript = "";
+    let interimTranscript = "";
+    let interviewCompleted = false;
+    let nextQuestionTimeout = null;
+    
+    // ── Deepgram STT ──────────────────────────────────────────────
+    function startDeepgram(stream) {
+
+        if (deepgramSocket) {
+            stopDeepgram();
+        }
+        console.log("Starting Deepgram...");
+
+        finalTranscript = "";
+        interimTranscript = "";
+
+        deepgramSocket = new WebSocket(
+            "ws://localhost:8011/api/interviews/ws/deepgram"
+        );
+
+        deepgramSocket.binaryType = "arraybuffer";
+
+        deepgramSocket.onopen = () => {
+
+            console.log("Deepgram connected");
+
+            console.log(
+                "micStream:",
+                micStream
+            );
+
+            console.log(
+                "tracks:",
+                micStream?.getAudioTracks()
+            );
+            const audioTrack = stream.getAudioTracks()[0];
+
+            const audioStream = new MediaStream([audioTrack]);
+
+            mediaRecorder = new MediaRecorder(
+                audioStream,
+                {
+                    mimeType: "audio/webm;codecs=opus"
+                }
+            );
+
+            mediaRecorder.ondataavailable = async (event) => {
+
+                if (
+                    event.data.size > 0 &&
+                    deepgramSocket.readyState === WebSocket.OPEN
+                ) {
+
+                    const buffer =
+                        await event.data.arrayBuffer();
+
+                    deepgramSocket.send(buffer);
+                }
+            };
+
+            mediaRecorder.start(250);
+        };
+
+        deepgramSocket.onmessage = (event) => {
+
+            const msg =
+                JSON.parse(event.data);
+
+            if (
+                msg.type !== "Results"
+            ) return;
+
+            const transcript =
+                msg.channel?.alternatives?.[0]?.transcript || "";
+
+            if (!transcript) return;
+
+            if (msg.is_final) {
+
+                finalTranscript += transcript + " ";
+                interimTranscript = "";
+
+            } else {
+
+                interimTranscript = transcript;
+            }
+
+            const combined =
+                (finalTranscript + interimTranscript).trim();
+
+            document.getElementById(
+                "answerText"
+            ).value = combined;
+
+            document.getElementById(
+                "transcript-box"
+            ).innerHTML = combined;
+        };
+
+        deepgramSocket.onerror =
+            err => console.error(err);
+
+        deepgramSocket.onclose =
+            e => console.log("DG closed", e.code);
+    }
+
+    function stopDeepgram() {
+
+        if (mediaRecorder) {
+
+            if (
+                mediaRecorder.state !== "inactive"
+            ) {
+                mediaRecorder.stop();
+            }
+
+            mediaRecorder = null;
+        }
+
+        if (deepgramSocket) {
+
+            deepgramSocket.close();
+
+            deepgramSocket = null;
+        }
+    }
+    function updateTranscriptDisplay() {
+        const box = document.getElementById("transcript-box");
+        const combined = (finalTranscript + interimTranscript).trim();
+
+        if (!combined) {
+            box.innerHTML = '<em style="color:#aaa;">Your answer will appear here as you speak...</em>';
+        } else {
+            // Final text in black, interim in grey
+            box.innerHTML =
+                `<span style="color:#000;">${finalTranscript}</span>` +
+                `<span style="color:#999;">${interimTranscript}</span>`;
+        }
+    }
+
+    // ── LiveKit ───────────────────────────────────────────────────
+    let micStream = null;
+
+    async function connectLivekit() {
+
+        try {
+
+            micStream = await navigator.mediaDevices.getUserMedia({
+                video: true,
+                audio: {
+                    noiseSuppression: true,
+                    echoCancellation: true,
+                    autoGainControl: true,
+                    channelCount: 1,
+                    sampleRate: 48000
+                }
+            });
+
+            document.getElementById("localVideo").srcObject =
+                micStream;
+
+            room = new LivekitClient.Room();
+
+            await room.connect(
+                LIVEKIT_URL,
+                LIVEKIT_TOKEN
+            );
+
+            for (const track of micStream.getTracks()) {
+                await room.localParticipant.publishTrack(track);
+            }
+
+            console.log("Connected to LiveKit");
+
+            return true;
+
+        } catch (error) {
+
+            console.error(
+                "LiveKit/Mic Error:",
+                error
+            );
+
+            return false;
+        }
+    }    // ── Interview Flow ────────────────────────────────────────────
+    async function startInterview() {
+
+        const ok =
+            await connectLivekit();
+
+        if (!ok) {
+
+            alert(
+                "Unable to access microphone."
+            );
+
+            return;
+        }
+
+        await fetch(
+            `/api/interviews/${interviewId}/start-recording`,
+            { method: "POST" }
+        );
+
+        await loadCurrentQuestion();
+    }
+
+    async function loadCurrentQuestion() {
+
+        if (interviewCompleted) {
+            return;
+        }
+        console.log("Loading question...");
+
+        const response = await fetch(`/api/interviews/${interviewId}/current-question`);
+        const result = await response.json();
+        console.log(result);
+
+        const data = result.data;
+        console.log("Question:", data);
+
+        console.log(
+            "question-box:",
+            document.getElementById("question-box")
+        );
+        document.getElementById("question-box").style.display = "block";
+
+        if (data.completed) {
+            await completeInterview();
+            return;
+        }
+
+        currentQuestionId = data.questionId;
+        document.getElementById("question").innerText = data.questionText;
+        document.getElementById("sequence").innerText =
+            `(${data.sequence}/${data.totalQuestions})`;
+        document.getElementById("answerText").value = "";
+        document.getElementById("status").innerText = "";
+
+        // Reset transcript for new question
+        finalTranscript = "";
+        interimTranscript = "";
+        updateTranscriptDisplay();
+
+        // Start Deepgram for this question
+        // startDeepgram(micStream);
+
+        speakQuestion(data.questionText);
+        startTimer(data.duration);
+    }
+
+    async function submitAnswer() {
+        // Commit any interim transcript before submitting
+        const answerText = (finalTranscript + interimTranscript).trim();
+        document.getElementById("answerText").value = answerText;
+
+        await fetch(`/api/interviews/${interviewId}/answers`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                questionId: currentQuestionId,
+                answerText: answerText
+            })
+        });
+    }
+
+        async function nextQuestion() {
+
+        if (interviewCompleted) {
+            return;
+        }
+
+        clearInterval(countdownInterval);
+
+        stopDeepgram();
+
+        await submitAnswer();
+
+        const response = await fetch(
+            `/api/interviews/${interviewId}/next-question`,
+            {
+                method: "POST"
+            }
+        );
+
+        const result = await response.json();
+        const data = result.data;
+
+        if (data.completed) {
+            await completeInterview();
+            return;
+        }
+
+        currentQuestionId = data.questionId;
+
+        document.getElementById("question").innerText =
+            data.questionText;
+
+        document.getElementById("sequence").innerText =
+            `(${data.sequence}/${data.totalQuestions})`;
+
+        document.getElementById("status").innerText = "";
+
+        finalTranscript = "";
+        interimTranscript = "";
+
+        updateTranscriptDisplay();
+
+        speakQuestion(data.questionText);
+
+        startTimer(data.duration);
+    }
+    async function completeInterview() {
+
+        if (nextQuestionTimeout) {
+            clearTimeout(nextQuestionTimeout);
+        }
+        if (interviewCompleted) {
+            console.log(
+                "Interview already completed."
+            );
+            return;
+        }
+
+        interviewCompleted = true;
+
+        clearInterval(countdownInterval);
+
+        stopDeepgram();
+
+        try {
+
+            await fetch(
+                `/api/interviews/${interviewId}/complete`,
+                {
+                    method: "POST"
+                }
+            );
+
+            console.log(
+                "Interview completed."
+            );
+
+        } catch (err) {
+
+            console.error(
+                "Failed to complete interview:",
+                err
+            );
+        }
+
+        showInterviewCompleted();
+    }
+    function showInterviewCompleted() {
+        document.getElementById("question").innerText = "Interview Completed";
+        document.getElementById("timer").innerText = "";
+        document.getElementById("status").innerText = "Thank you for attending.";
+        document.getElementById("transcript-box").innerText = "";
+        document.getElementById("mic-status").style.display = "none";
+        document.getElementById("nextBtn").style.display = "none";
+
+        setTimeout(() => { if (room) room.disconnect(); }, 3000);
+    }
+
+    function startTimer(seconds) {
+        let remaining = seconds;
+        const timer = document.getElementById("timer");
+
+        countdownInterval = setInterval(async () => {
+            timer.innerText = `Time Remaining: ${remaining}s`;
+            remaining--;
+
+            if (remaining < 0) {
+                clearInterval(countdownInterval);
+                document.getElementById("status").innerText =
+                    "Time expired. Moving to next question in 5 seconds.";
+
+                nextQuestionTimeout =
+                    setTimeout(async () => {
+
+                        if (interviewCompleted) {
+                            return;
+                        }
+
+                        await nextQuestion();
+
+                    }, 5000);
+            }
+        }, 1000);
+    }
+
+    function speakQuestion(questionText) {
+
+        speechSynthesis.cancel();
+
+        const voices =
+            speechSynthesis.getVoices();
+
+        const speech =
+            new SpeechSynthesisUtterance(
+                questionText
+            );
+
+        speech.voice =
+            voices.find(
+                v => v.lang.startsWith("en")
+            ) || voices[0];
+
+        speech.rate = 1;
+        speech.pitch = 1;
+        speech.volume = 1;
+
+        speech.onstart = () => {
+
+            console.log(
+                "AI started speaking"
+            );
+
+            stopDeepgram();
+        };
+
+        speech.onend = () => {
+
+            if (interviewCompleted) {
+                return;
+            }
+
+            if (deepgramSocket) {
+                return;
+            }
+
+            if (!micStream) {
+                return;
+            }
+
+            startDeepgram(micStream);
+        };
+
+        speechSynthesis.speak(
+            speech
+        );
+    }
+</script>
+
+</body>
+</html>

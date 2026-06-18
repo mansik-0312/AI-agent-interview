@@ -1,8 +1,10 @@
 .env
 Dockerfile
 venv/
-
+ai-interview/
 # Ignore all Python cache folders and compiled files
 **/__pycache__/
 *.pyc
 *.pyo
+
+livekit-local/recordings/
