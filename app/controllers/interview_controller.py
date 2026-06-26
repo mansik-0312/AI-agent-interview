@@ -110,13 +110,23 @@ async def complete_interview_controller(
         data=result
     )
 
-async def get_interviews_controller():
 
-    interviews = await get_interviews_service()
-
+async def get_interviews_controller(
+    page: int = 1,
+    limit: int = 10
+):
+ 
+    interviews, total = await get_interviews_service(page, limit)
+ 
     return response.success_message(
         "Interviews fetched successfully",
-        interviews
+        {
+            "items": interviews,
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "totalPages": (total + limit - 1) // limit if limit else 1
+        }
     )
 
 

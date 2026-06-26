@@ -223,13 +223,16 @@ async def complete_interview(
     
     return result
 
+
 @router.get("")
 async def get_interviews(
+    page: int = 1,
+    limit: int = 10,
     current_user: dict = Depends(
         get_current_user
     )
 ):
-    return await get_interviews_controller()
+    return await get_interviews_controller(page, limit)
 
 
 @router.get("/{interview_id}")
