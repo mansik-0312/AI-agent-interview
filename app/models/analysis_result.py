@@ -1,4 +1,4 @@
-from beanie import Document
+from beanie import Document,PydanticObjectId
 from bson import ObjectId
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timezone
@@ -28,7 +28,7 @@ class QuestionWiseResult(BaseModel):
 
 class AnalysisResult(Document):
 
-    interviewId: ObjectId
+    interviewId: PydanticObjectId
 
     transcript: Optional[str] = None
 

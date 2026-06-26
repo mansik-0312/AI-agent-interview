@@ -15,6 +15,7 @@ from app.models.candidate_application import CandidateApplication
 from app.models.candidate import Candidate
 from app.models.answer import Answer
 from app.models.analysis_result import AnalysisResult
+from fastapi.encoders import jsonable_encoder
 
 from app.core.utils.response_mixin import (
     CustomResponseMixin
@@ -500,26 +501,26 @@ async def build_interview_details(
 
     return {
         "interviewId": str(interview.id),
-
-        "candidateName":
-            candidate.name,
-
-        "status":
-            interview.status,
-
-        "technicalScore":
-            interview.technicalScore,
-
-        "analysis":
-            analysis.model_dump()
-            if analysis
-            else None
+        "candidateName": candidate.name,
+        "status": interview.status,
+        "technicalScore": interview.technicalScore,
+        "analysis": jsonable_encoder(analysis) if analysis else None
     }
 
-async def get_interviews_service():
-
-    interviews = await Interview.find().to_list()
-
+async def get_interviews_service(
+    page: int = 1,
+    limit: int = 10
+):
+ 
+    skip = (page - 1) * limit
+ 
+    total = await Interview.find().count()
+ 
+    interviews = await Interview.find() \
+        .skip(skip) \
+        .limit(limit) \
+        .to_list()
+ 
     result = []
 
     for interview in interviews:
@@ -529,8 +530,8 @@ async def get_interviews_service():
                 interview
             )
         )
-
-    return result
+ 
+    return result, total
 
 async def get_interview_by_id_service(
     interview_id: str
