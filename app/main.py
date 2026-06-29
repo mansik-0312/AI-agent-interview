@@ -17,7 +17,12 @@ from app.models.analysis_result import AnalysisResult
 from app.routes.template_routes import router as template_router
 from app.routes.question_routes import router as question_router
 from app.routes.interview_routes import router as interview_router
+from app.routes.dashboard import router as dashboard_router
+
+from fastapi.middleware.cors import CORSMiddleware
 from app.routes.interview import router as interview
+
+
 load_dotenv()
 
 from fastapi.staticfiles import StaticFiles
@@ -44,6 +49,18 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+origins = [
+    "http://localhost:3001",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.mount("/recordings", StaticFiles(directory="livekit-local/recordings"), name="recordings")
 
 app.include_router(
@@ -62,6 +79,10 @@ app.include_router(
     interview,
     prefix="/api",
     tags=["analyze"]
+)
+app.include_router(
+    dashboard_router,
+    prefix="/api"
 )
 @app.get("/")
 async def health():

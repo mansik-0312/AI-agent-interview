@@ -15,6 +15,10 @@ from app.core.utils.response_mixin import (
     CustomResponseMixin
 )
 
+from app.core.utils.helper import serialize_datetime_fields
+
+from app.core.utils.pagination import StandardResultsSetPagination
+
 response = CustomResponseMixin()
 
 
@@ -34,16 +38,24 @@ async def create_question_controller(
 
 
 async def get_questions_controller(
+    search: str,
+    difficulty: str,
+    active: bool,
     templateId: str,
+    pagination: StandardResultsSetPagination,
     current_user: dict
 ):
-    questions = await get_questions_service(
-        templateId=templateId
+    data = await get_questions_service(
+        search=search,
+        difficulty=difficulty,
+        active=active,
+        templateId=templateId,
+        pagination=pagination
     )
 
     return response.success_message(
         message="Questions fetched successfully",
-        data=questions
+        data=serialize_datetime_fields(data)
     )
 
 

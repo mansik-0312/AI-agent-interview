@@ -11,6 +11,8 @@ from app.schemas.template_schema import (
 
 from app.auth.dependencies import get_current_user
 
+from app.core.utils.pagination import StandardResultsSetPagination, pagination_params
+
 router = APIRouter(
     prefix="/templates",
     tags=["Interview Templates"]
@@ -30,8 +32,14 @@ async def create_template(
 
 @router.get("")
 async def get_templates(
-    current_user: dict = Depends(get_current_user)
-    ):
+    pagination: StandardResultsSetPagination = Depends(
+        pagination_params
+    ),
+    current_user: dict = Depends(
+        get_current_user
+    )
+):
     return await get_templates_controller(
+        pagination=pagination,
         current_user=current_user
     )

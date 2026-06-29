@@ -9,6 +9,11 @@ from app.core.utils.response_mixin import (
     CustomResponseMixin
 )
 
+from app.core.utils.pagination import (
+    StandardResultsSetPagination,
+    build_paginated_response
+)
+
 response = CustomResponseMixin()
 
 
@@ -57,7 +62,11 @@ async def create_question_service(
 
 
 async def get_questions_service(
-    templateId=None
+    pagination: StandardResultsSetPagination,
+    templateId: str = None,
+    difficulty: str = None,
+    active: bool = None,
+    search: str = None
 ):
 
     filters = {
@@ -69,30 +78,145 @@ async def get_questions_service(
             templateId
         )
 
-    questions = await Question.find(
-        filters
-    ).to_list()
+    if difficulty:
+        filters["difficulty"] = difficulty
 
-    response_data = []
+    if active is not None:
+        filters["active"] = active
+
+    if search:
+        filters["questionText"] = {
+            "$regex": search,
+            "$options": "i"
+        }
+
+    # Dashboard stats
+    total_questions = await Question.find(
+        {
+            "deleted.status": False
+        }
+    ).count()
+
+    active_questions = await Question.find(
+        {
+            "deleted.status": False,
+            "active": True
+        }
+    ).count()
+
+    inactive_questions = await Question.find(
+        {
+            "deleted.status": False,
+            "active": False
+        }
+    ).count()
+
+    # Total records after filters
+    total_records = await Question.find(
+        filters
+    ).count()
+
+    query = Question.find(
+        filters
+    )
+
+    if (
+        pagination.page
+        and pagination.page_size
+    ):
+        query = query.skip(
+            pagination.skip
+        ).limit(
+            pagination.limit
+        )
+
+    questions = await query.to_list()
+
+    # Fetch template names
+    template_ids = list(
+        {
+            question.templateId
+            for question in questions
+        }
+    )
+
+    template_map = {}
+
+    if template_ids:
+        templates = await InterviewTemplate.find(
+            {
+                "_id": {
+                    "$in": template_ids
+                }
+            }
+        ).to_list()
+
+        template_map = {
+            str(template.id): template.name
+            for template in templates
+        }
+
+    records = []
 
     for question in questions:
-
-        response_data.append(
+        records.append(
             {
-                "id": str(question.id),
+                "id": str(
+                    question.id
+                ),
                 "templateId": str(
                     question.templateId
                 ),
-                "questionText": question.questionText,
-                "expectedAnswer": question.expectedAnswer,
-                "duration": question.duration,
-                "weight": question.weight,
-                "difficulty": question.difficulty,
-                "active": question.active
+                "templateName": template_map.get(
+                    str(
+                        question.templateId
+                    ),
+                    ""
+                ),
+                "questionText":
+                    question.questionText,
+                "expectedAnswer":
+                    question.expectedAnswer,
+                "duration":
+                    question.duration,
+                "weight":
+                    question.weight,
+                "difficulty":
+                    question.difficulty,
+                "active":
+                    question.active,
+                "createdAt":
+                    question.createdAt
             }
         )
 
-    return response_data
+    paginated_data = (
+        build_paginated_response(
+            records=records,
+            page=(
+                pagination.page
+                or 1
+            ),
+            page_size=(
+                pagination.page_size
+                or total_records
+                or 1
+            ),
+            total_records=total_records
+        )
+    )
+
+    return {
+        "stats": {
+            "totalQuestions":
+                total_questions,
+            "activeQuestions":
+                active_questions,
+            "inactiveQuestions":
+                inactive_questions
+        },
+        **paginated_data
+    }
 
 
 async def get_question_by_id_service(

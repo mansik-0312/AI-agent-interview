@@ -12,6 +12,8 @@ from app.core.utils.response_mixin import (
 )
 from app.core.utils.helper import serialize_datetime_fields,convert_objectid_to_str
 
+from app.core.utils.pagination import build_paginated_response
+
 response = CustomResponseMixin()
 
 
@@ -27,23 +29,31 @@ async def create_template_controller(
 
     return response.success_message(
         message="Template created successfully",
-        data=template
+        data=serialize_datetime_fields(template)
     )
 
 
 async def get_templates_controller(
-    current_user: dict
+    pagination,
+    current_user
 ):
 
-    templates = await get_templates_service()
+    records, total_records = (
+        await get_templates_service(
+            pagination
+        )
+    )
 
     return response.success_message(
         "Templates fetched successfully",
-        data=[
-            serialize_datetime_fields(
-                convert_objectid_to_str(
-                    templates
+        serialize_datetime_fields(
+            convert_objectid_to_str(
+                build_paginated_response(
+                    records=records,
+                    page=pagination.page or 1,
+                    page_size=pagination.page_size or total_records,
+                    total_records=total_records
                 )
             )
-        ]
+        )
     )
