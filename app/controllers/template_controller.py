@@ -35,12 +35,14 @@ async def create_template_controller(
 
 async def get_templates_controller(
     pagination,
+    active,
     current_user
 ):
 
     records, total_records = (
         await get_templates_service(
-            pagination
+            pagination=pagination,
+            active=active
         )
     )
 

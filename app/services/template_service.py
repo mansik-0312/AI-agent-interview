@@ -32,12 +32,16 @@ async def create_template_service(
 
 
 async def get_templates_service(
-    pagination
+    pagination,
+    active=None
 ):
 
     filters = {
         "deleted.status": False
     }
+
+    if active is not None:
+        filters["active"] = active
 
     total_records = (
         await InterviewTemplate.find(
