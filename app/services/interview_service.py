@@ -39,8 +39,6 @@ from app.core.utils.livekit_recording import (
     stop_recording
 )
 
-from ..database import candidate_applications_collection  ,interview_templates_collection
-
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 response = CustomResponseMixin()
 
@@ -173,7 +171,7 @@ async def create_interview_service(
         livekitToken=livekit_response["token"],
         scheduledAt=scheduled_at,
         createdBy=ObjectId(
-                current_user["userId"]
+                current_user["id"]
             )
     )
     await interview.insert()
@@ -487,68 +485,6 @@ async def complete_interview_service(interview_id: str):
         "status": interview.status
     }
 
-# async def build_interview_details(
-#     interview: Interview
-# ):
-
-#     analysis = await AnalysisResult.find_one(
-#         {
-#             "interviewId": interview.id
-#         }
-#     )
-
-#     candidate = await Candidate.get(
-#         interview.candidateId
-#     )
-
-#     return {
-#         "interviewId": str(interview.id),
-#         "candidateName": candidate.name,
-#         "status": interview.status,
-#         "technicalScore": interview.technicalScore,
-#         "analysis": jsonable_encoder(analysis) if analysis else None
-#     }
-
-def get_technical_status(score: float | None):
-    """
-    Return status based on technical score (Out of 5)
-    """
-
-    if score is None:
-        return "Not Evaluated"
-
-    if score >= 4:
-        return "Excellent"
-
-    if score >= 3:
-        return "Good"
-
-    if score >= 2:
-        return "Average"
-
-    return "Poor"
-
-
-def get_integrity_status(score: float | None):
-    """
-    Return integrity status based on percentage.
-    Database stores score out of 10.
-    """
-
-    if score is None:
-        return "Unknown"
-
-    percentage = score * 10
-
-    if percentage >= 90:
-        return "High"
-
-    if percentage >= 70:
-        return "Medium"
-
-    return "Low"
-
-
 async def build_interview_details(
     interview: Interview
 ):
@@ -563,97 +499,12 @@ async def build_interview_details(
         interview.candidateId
     )
 
-    template = None
-
-    if interview.templateId:
-        template = await InterviewTemplate.get(
-            interview.templateId
-        )
-
-    technical_score = interview.technicalScore or 0
-    integrity_percentage = (interview.integrityScore or 0) * 10
-
     return {
-
         "interviewId": str(interview.id),
-
         "candidateName": candidate.name,
-
         "status": interview.status,
-
-        "date": (
-            interview.completedAt.isoformat()
-            if interview.completedAt
-            else None
-        ),
-
-        # -----------------------------
-        # Static (For Now)
-        # -----------------------------
-        "duration": {
-            "time": "56m 32s",
-            "startTime": "10:00 AM",
-            "endTime": "10:56 AM"
-        },
-
-        # -----------------------------
-        # Questions
-        # -----------------------------
-        "questions": {
-            "total": interview.totalQuestions,
-            "answered": interview.answeredQuestions,
-            "completionPercentage": (
-                round(
-                    (interview.answeredQuestions / interview.totalQuestions) * 100
-                )
-                if interview.totalQuestions
-                else 0
-            )
-        },
-
-        # -----------------------------
-        # Technical Score
-        # -----------------------------
-        "technicalScore": {
-            "score": technical_score,
-            "outOf": 5,
-            "status": get_technical_status(
-                technical_score
-            )
-        },
-
-        # -----------------------------
-        # Integrity Score
-        # -----------------------------
-        "integrityScore": {
-            "score": integrity_percentage,
-            "status": get_integrity_status(
-                interview.integrityScore
-            )
-        },
-
-        # -----------------------------
-        # Interview Template
-        # -----------------------------
-        "interviewTemplate": {
-            "id": str(template.id) if template else None,
-            "name": template.name if template else None,
-            "description": template.description if template else None,
-            "totalQuestions": (
-                template.totalQuestions
-                if template
-                else interview.totalQuestions
-            )
-        },
-
-        # -----------------------------
-        # Analysis
-        # -----------------------------
-        "analysis": (
-            jsonable_encoder(analysis)
-            if analysis
-            else None
-        )
+        "technicalScore": interview.technicalScore,
+        "analysis": jsonable_encoder(analysis) if analysis else None
     }
 
 async def get_interviews_service(
@@ -698,89 +549,3 @@ async def get_interview_by_id_service(
     return await build_interview_details(
         interview
     )
-
-async def get_shortlisted_candidates_service():
-    pipeline = [
-        {
-            "$match": {
-                "status": "shortlisted"
-            }
-        },
-        {
-            "$lookup": {
-                "from": "candidates",
-                "localField": "candidateId",
-                "foreignField": "_id",
-                "as": "candidate"
-            }
-        },
-        {
-            "$unwind": "$candidate"
-        },
-        {
-            "$match": {
-                "candidate.deleted.status": False
-            }
-        },
-        {
-            "$project": {
-                "_id": 0,
-                "applicationId": {
-                    "$toString": "$_id"
-                },
-                "candidateId": {
-                    "$toString": "$candidate._id"
-                },
-                "name": "$candidate.name",
-                "email": "$candidate.email",
-                "mobile": {
-                    "$toString": "$candidate.mobile"
-                },
-                "role": "$candidate.role",
-                "resumePath": "$resumePath",
-                "status": "$status"
-            }
-        },
-        {
-            "$sort": {
-                "name": 1
-            }
-        }
-    ]
-
-    return await candidate_applications_collection.aggregate(
-        pipeline
-    ).to_list(length=None)
-
-async def get_interview_templates_service():
-
-    pipeline = [
-        {
-            "$match": {
-                "active": True,
-                "deleted.status": False
-            }
-        },
-        {
-            "$project": {
-                "_id": 0,
-                "templateId": {
-                    "$toString": "$_id"
-                },
-                "name": 1,
-                "description": 1,
-                "totalQuestions": 1
-            }
-        },
-        {
-            "$sort": {
-                "name": 1
-            }
-        }
-    ]
-
-    templates = await interview_templates_collection.aggregate(
-        pipeline
-    ).to_list(length=None)
-
-    return templates

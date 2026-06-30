@@ -2,8 +2,6 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from beanie import init_beanie
-from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import db
 from app.models.interview_template import InterviewTemplate
@@ -20,8 +18,6 @@ from app.routes.template_routes import router as template_router
 from app.routes.question_routes import router as question_router
 from app.routes.interview_routes import router as interview_router
 from app.routes.interview import router as interview
-from app.routes.report_route import router as repcort_router
-
 load_dotenv()
 
 from fastapi.staticfiles import StaticFiles
@@ -40,8 +36,8 @@ async def lifespan(app: FastAPI):
             JobRequisition,
             InterviewQuestion,
             Answer,
-            AnalysisResult,
-        ],
+            AnalysisResult
+        ]
     )
 
     yield
@@ -65,13 +61,7 @@ app.include_router(
 app.include_router(
     interview,
     prefix="/api",
-    tags=["analyze"],
-)
-
-app.include_router(
-    repcort_router,
-    prefix="/api",
-    tags=["report"]
+    tags=["analyze"]
 )
 @app.get("/")
 async def health():
