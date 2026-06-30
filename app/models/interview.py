@@ -62,6 +62,13 @@ class Interview(
 
     recordingReady: bool = False
 
+
+    candidateName: Optional[str] = None
+    departmentId: Optional[str] = None
+    jobRole: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+
     model_config = ConfigDict(
         arbitrary_types_allowed=True
     )

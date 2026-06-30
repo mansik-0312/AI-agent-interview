@@ -4,7 +4,7 @@ import random
 from datetime import datetime, timezone
 import os
 import subprocess
-
+from fastapi import HTTPException
 from dotenv import load_dotenv
 from app.models.interview import Interview
 from app.models.interview_question import InterviewQuestion
@@ -39,7 +39,11 @@ from app.core.utils.livekit_recording import (
     stop_recording
 )
 
-from ..database import candidate_applications_collection  ,interview_templates_collection
+from ..database import (
+    candidate_applications_collection  ,
+    interview_templates_collection ,
+    department_collection
+)
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 response = CustomResponseMixin()
@@ -164,6 +168,13 @@ async def create_interview_service(
         candidateApplicationId=candidate_application.id,
         jobRequisitionId=candidate_application.jobRequisitionId,
         templateId=template.id,
+
+        candidateName=payload.candidateName,
+        departmentId=ObjectId(payload.departmentId),
+        jobRole=payload.jobRole,
+        experience=payload.experience,
+        email=payload.email,
+        phone=payload.phone,
         status=InterviewStatus.SCHEDULED,
         totalQuestions=template.totalQuestions,
         interviewToken=interview_token,
@@ -784,3 +795,37 @@ async def get_interview_templates_service():
     ).to_list(length=None)
 
     return templates
+
+async def get_departments_service():
+    try:
+        cursor = department_collection.find(
+            {
+                "deleted.status": False
+            },
+            {
+                "_id": 1,
+                "name": 1
+            }
+        ).sort("name", 1)
+
+        departments = []
+
+        async for department in cursor:
+            departments.append(
+                {
+                    "id": str(department["_id"]),
+                    "name": department["name"]
+                }
+            )
+
+        return {
+            "message": "Departments fetched successfully.",
+            "data": departments
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch departments: {str(e)}"
+        )
+

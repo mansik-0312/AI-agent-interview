@@ -8,7 +8,8 @@ from app.services.interview_service import (
     get_interview_by_id_service,
     start_interview_service,
     get_shortlisted_candidates_service,
-    get_interview_templates_service
+    get_interview_templates_service,
+    get_departments_service
 )
 from app.services.analysis import (
     analyze_interview_service
@@ -177,3 +178,6 @@ async def get_interview_templates_controller():
         "Interview templates fetched successfully",
         templates
     )
+
+async def get_departments_controller(current_user):
+    return await get_departments_service()
