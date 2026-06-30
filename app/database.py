@@ -30,3 +30,7 @@ db = client[DB_NAME]
 
 interview_transcripts_collection = db["analysis_results"]
 interview_analysis_collection = db["interview_analysis"]
+
+candidate_collection = db["candidates"]
+candidate_applications_collection = db["candidate_applications"]
+interview_templates_collection = db["interview_templates"]
