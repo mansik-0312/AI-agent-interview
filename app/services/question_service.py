@@ -274,7 +274,7 @@ async def update_question_service(
         )
 
     question.updatedBy = ObjectId(
-        current_user["userId"]
+        current_user["id"]
     )
 
     await question.save()
@@ -301,7 +301,7 @@ async def delete_question_service(
     question.deleted.status = True
 
     question.updatedBy = ObjectId(
-        current_user["userId"]
+        current_user["id"]
     )
 
     await question.save()
