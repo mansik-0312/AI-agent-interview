@@ -3,13 +3,16 @@ from typing import Optional
 
 
 class InterviewTemplateCreate(BaseModel):
-    name: str = Field(..., min_length=2)
+    name: str = Field(..., min_length=3, max_length=100)
 
-    description: Optional[str] = None
+    description: str | None = Field(
+        default=None,
+        max_length=500
+    )
 
     totalQuestions: int = Field(
-        default=5,
-        gt=0
+        ge=1,
+        le=100
     )
 
 

@@ -15,7 +15,7 @@ async def create_template_service(
         description=payload.description,
         totalQuestions=payload.totalQuestions,
         createdBy=ObjectId(
-            current_user["userId"]
+            current_user["id"]
         )
     )
 
@@ -25,17 +25,43 @@ async def create_template_service(
         "id": str(template.id),
         "name": template.name,
         "description": template.description,
-        "totalQuestions": template.totalQuestions
+        "totalQuestions": template.totalQuestions,
+        "active": template.active,
+        "createdAt": template.createdAt
     }
 
 
-async def get_templates_service():
+async def get_templates_service(
+    pagination
+):
 
-    templates = await InterviewTemplate.find(
-        {
-            "deleted.status": False
-        }
-    ).to_list()
+    filters = {
+        "deleted.status": False
+    }
+
+    total_records = (
+        await InterviewTemplate.find(
+            filters
+        ).count()
+    )
+
+    query = (
+        InterviewTemplate.find(filters)
+        .sort(-InterviewTemplate.createdAt)
+    )
+
+    if (
+        pagination.page is not None
+        and
+        pagination.page_size is not None
+    ):
+        query = (
+            query
+            .skip(pagination.skip)
+            .limit(pagination.limit)
+        )
+
+    templates = await query.to_list()
 
     response = []
 
@@ -47,8 +73,14 @@ async def get_templates_service():
                 "name": template.name,
                 "description": template.description,
                 "totalQuestions": template.totalQuestions,
-                "active": template.active
+                "active": template.active,
+                "createdAt": template.createdAt,
+                "createdBy": (
+                    str(template.createdBy)
+                    if template.createdBy
+                    else None
+                )
             }
         )
 
-    return response
+    return response, total_records

@@ -15,6 +15,8 @@ from app.schemas.question_schema import (
 
 from app.auth.dependencies import get_current_user
 
+from app.core.utils.pagination import StandardResultsSetPagination, pagination_params
+
 router = APIRouter(
     prefix="/questions",
     tags=["Questions"]
@@ -36,15 +38,23 @@ async def create_question(
 
 @router.get("")
 async def get_questions(
-    templateId: str = Query(
-        default=None
+    search: str = Query(None),
+    difficulty: str = Query(None),
+    active: bool = Query(None),
+    templateId: str = Query(None),
+    pagination: StandardResultsSetPagination = Depends(
+        pagination_params
     ),
     current_user: dict = Depends(
         get_current_user
     )
 ):
     return await get_questions_controller(
+        search=search,
+        difficulty=difficulty,
+        active=active,
         templateId=templateId,
+        pagination=pagination,
         current_user=current_user
     )
 
