@@ -170,7 +170,7 @@ async def create_interview_service(
         templateId=template.id,
 
         candidateName=payload.candidateName,
-        departmentId=ObjectId(payload.departmentId),
+        departmentId=payload.departmentId,
         jobRole=payload.jobRole,
         experience=payload.experience,
         email=payload.email,
