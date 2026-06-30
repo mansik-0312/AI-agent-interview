@@ -6,7 +6,9 @@ from app.services.interview_service import (
     complete_interview_service,
     get_interviews_service,
     get_interview_by_id_service,
-    start_interview_service
+    start_interview_service,
+    get_shortlisted_candidates_service,
+    get_interview_templates_service
 )
 from app.services.analysis import (
     analyze_interview_service
@@ -110,13 +112,23 @@ async def complete_interview_controller(
         data=result
     )
 
-async def get_interviews_controller():
 
-    interviews = await get_interviews_service()
-
+async def get_interviews_controller(
+    page: int = 1,
+    limit: int = 10
+):
+ 
+    interviews, total = await get_interviews_service(page, limit)
+ 
     return response.success_message(
         "Interviews fetched successfully",
-        interviews
+        {
+            "items": interviews,
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "totalPages": (total + limit - 1) // limit if limit else 1
+        }
     )
 
 
@@ -146,4 +158,22 @@ async def analyze_interview_controller(
     return response.success_message(
         message="Interview analyzed successfully",
         data=result
+    )
+
+async def get_shortlisted_candidates_controller():
+
+    candidates = await get_shortlisted_candidates_service()
+
+    return response.success_message(
+        "Shortlisted candidates fetched successfully",
+        candidates
+    )
+
+async def get_interview_templates_controller():
+
+    templates = await get_interview_templates_service()
+
+    return response.success_message(
+        "Interview templates fetched successfully",
+        templates
     )

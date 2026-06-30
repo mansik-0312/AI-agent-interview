@@ -2,6 +2,8 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from beanie import init_beanie
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import db
 from app.models.interview_template import InterviewTemplate
@@ -21,6 +23,8 @@ from app.routes.dashboard import router as dashboard_router
 
 from fastapi.middleware.cors import CORSMiddleware
 from app.routes.interview import router as interview
+from app.routes.report_route import router as report_router
+
 
 
 load_dotenv()
@@ -41,8 +45,8 @@ async def lifespan(app: FastAPI):
             JobRequisition,
             InterviewQuestion,
             Answer,
-            AnalysisResult
-        ]
+            AnalysisResult,
+        ],
     )
 
     yield
@@ -78,12 +82,20 @@ app.include_router(
 app.include_router(
     interview,
     prefix="/api",
-    tags=["analyze"]
+    tags=["analyze"],
 )
+
+app.include_router(
+    report_router,
+    prefix="/api",
+    tags=["report"]
+)
+
 app.include_router(
     dashboard_router,
     prefix="/api"
 )
+
 @app.get("/")
 async def health():
     return {"message": "AI Interview Service Running"}

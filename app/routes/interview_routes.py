@@ -17,7 +17,9 @@ from app.controllers.interview_controller import (
     get_interviews_controller,
     get_interview_by_id_controller,
     analyze_interview_controller,
-    start_interview_controller
+    start_interview_controller,
+    get_shortlisted_candidates_controller,
+    get_interview_templates_controller
 )
 from app.core.utils import templates
 
@@ -106,6 +108,7 @@ async def join_interview(
             "livekit_url": LIVEKIT_URL,
         }
     )
+
 @router.get("/test-egress-payload/{interview_id}")
 async def debug_payload(interview_id: str):
     interview = await Interview.get(ObjectId(interview_id))
@@ -223,13 +226,28 @@ async def complete_interview(
     
     return result
 
+
 @router.get("")
 async def get_interviews(
+    page: int = 1,
+    limit: int = 10,
     current_user: dict = Depends(
         get_current_user
     )
 ):
-    return await get_interviews_controller()
+    return await get_interviews_controller(page, limit)
+
+@router.get("/candidates/shortlisted")
+async def get_shortlisted_candidates(
+    current_user: dict = Depends(get_current_user)
+):
+    return await get_shortlisted_candidates_controller()
+
+@router.get("/templates")
+async def get_interview_templates(
+    current_user: dict = Depends(get_current_user)
+):
+    return await get_interview_templates_controller()
 
 
 @router.get("/{interview_id}")
@@ -317,4 +335,3 @@ async def deepgram_proxy(
             "DEEPGRAM ERROR:",
             str(e)
         )
-
