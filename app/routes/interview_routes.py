@@ -19,7 +19,8 @@ from app.controllers.interview_controller import (
     analyze_interview_controller,
     start_interview_controller,
     get_shortlisted_candidates_controller,
-    get_interview_templates_controller
+    get_interview_templates_controller,
+    get_departments_controller
 )
 from app.core.utils import templates
 
@@ -249,6 +250,12 @@ async def get_interview_templates(
 ):
     return await get_interview_templates_controller()
 
+
+@router.get("/departments")
+async def get_departments_route(
+    current_user: dict = Depends(get_current_user)
+):
+    return await get_departments_controller(current_user)
 
 @router.get("/{interview_id}")
 async def get_interview_by_id(

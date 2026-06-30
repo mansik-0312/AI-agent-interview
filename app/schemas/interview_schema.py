@@ -16,6 +16,13 @@ class InterviewCreateRequest(BaseModel):
 
     interviewDuration: int = 60
 
+    candidateName: str
+    departmentId: str
+    jobRole: str
+    experience: Optional[str] = None
+    email: str
+    phone: str
+
 class InterviewCreateResponse(BaseModel):
 
     interviewId: str
