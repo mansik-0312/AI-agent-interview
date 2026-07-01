@@ -184,7 +184,7 @@ async def create_interview_service(
         livekitToken=livekit_response["token"],
         scheduledAt=scheduled_at,
         createdBy=ObjectId(
-                current_user["userId"]
+                current_user["id"]
             )
     )
     await interview.insert()
